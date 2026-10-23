@@ -155,3 +155,83 @@ person, not after.
 **UI contract:** the header is a five-state machine — `Offline → Väntar (n) → Uppdaterar… →
 Uppdaterat 14:32 | Fel`. Nothing syncs on scroll, on navigation or on a timer. The button is the
 only trigger (plus one silent pull when the app regains connectivity *and* something is pending).
+
+## 8. Deploy to Vercel
+
+`vercel.json` in this folder pins the whole build, so the dashboard only needs a root directory
+and two env vars. Nothing here is guesswork — SPEC §16.5 fixes the caching rules, and a stale
+service worker is the classic PWA support call.
+
+### 8.1 Import the project
+
+1. <https://vercel.com/new> → **Import Git Repository** → `WilliamSvens/projektapp`.
+2. Open **Root Directory** → **Edit** → set it to **`pwa`**. This is the step that fails quietly:
+   the repo root holds the old Streamlit app and has no `package.json`.
+3. **Framework Preset** becomes **Vite** automatically once the root is `pwa`. Leave Build
+   Command, Output Directory and Install Command alone — they come from `pwa/vercel.json`:
+
+   | Setting | Value | Why |
+   |---|---|---|
+   | Install | `pnpm install --frozen-lockfile --prod=false` | Without `--prod=false` the build has no `tsc`/`vite` |
+   | Build | `pnpm build` | Runs `tsc --noEmit && vite build`, so a type error fails the deploy |
+   | Output | `dist` | Vite default |
+   | Node | `22.x` | From `engines` in `package.json` |
+
+### 8.2 Environment variables (all three scopes)
+
+Vite inlines `VITE_*` at **build** time, so these must exist before the build runs, and changing
+one requires a redeploy.
+
+| Variable | Production | Preview + Development |
+|---|---|---|
+| `VITE_SUPABASE_URL` | `https://<PROD_REF>.supabase.co` | `https://<DEV_REF>.supabase.co` |
+| `VITE_SUPABASE_ANON_KEY` | prod anon key | dev anon key |
+
+Two entries per variable if the values differ per scope. Do not add `service_role` to any scope —
+it would be compiled into the public bundle (SPEC §16.2, check E9).
+
+4. **Deploy**. Name the project **`projektapp`** so the domain is `projektapp.vercel.app` and
+   matches the `<VERCEL_DOMAIN>` placeholder the rest of `docs/SETUP.md` uses.
+
+### 8.3 Wire the domain back into Supabase and Google
+
+The deploy succeeds before this and then sign-in bounces to `localhost` — this order is why.
+
+| Where | What |
+|---|---|
+| Supabase **prod** → Authentication → URL Configuration | Site URL `https://projektapp.vercel.app`, Redirect URLs `https://projektapp.vercel.app/**` and `https://*-<TEAM_SLUG>.vercel.app/**` |
+| Google Auth Platform → client `projektapp-web` | Authorized origin `https://projektapp.vercel.app` (keep `http://localhost:5173`) |
+
+The wildcard is what lets preview deployments log in (SETUP.md C.2 note, verification E8).
+
+### 8.4 Verify the deployment
+
+| Check | How | Expected |
+|---|---|---|
+| Shell loads | open the URL | sign-in screen, Swedish copy |
+| SW registered | DevTools → Application → Service Workers | `sw.js`, status **activated**, scope `/` |
+| Headers | `curl -I https://projektapp.vercel.app/sw.js` | `cache-control: public, max-age=0, must-revalidate` |
+| Hashed assets immutable | `curl -I .../assets/index-*.js` | `max-age=31536000, immutable` |
+| No service key | local `pnpm build`, then search `dist/**/*.js` for `SERVICE_ROLE` | no matches (E9) |
+| Offline start | Network → Offline, reload | app still boots (shell is cached) |
+| Preview login | open a PR, sign in on its `*.vercel.app` URL | session established (E8) |
+
+### 8.5 Gotchas, in the order they usually bite
+
+| Symptom | Cause | Fix |
+|---|---|---|
+| Build fails: no `package.json` found | Root Directory left at the repo root | Set it to `pwa` |
+| `tsc: not found` during build | Dev deps skipped because `NODE_ENV=production` | Already handled by `--prod=false`; don't "simplify" the install command |
+| `ERR_PNPM_OUTDATED_LOCKFILE` | `package.json` changed without a local `pnpm install` | Run it, commit `pnpm-lock.yaml` |
+| Preview deploy can't sign in, production can | Vercel **Deployment Protection** intercepts the OAuth return, or the wildcard is missing | Disable protection for previews, or test against production |
+| Old version keeps loading after a deploy | Service worker still serving the previous shell | Reload twice; DevTools → SW → **Update**. Bump `CACHE` in `public/sw.js` only when SW logic changes |
+| Login works, every list is empty | Env vars point at prod while the migration was only pushed to dev, or the allowlist email differs | Check `is_team_member()` in `0001_init.sql` |
+
+Deploying by hand instead is allowed but does not replace step 8.2:
+
+```powershell
+cd pwa
+npx vercel          # preview URL
+npx vercel --prod   # production
+```
+
