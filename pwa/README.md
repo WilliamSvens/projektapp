@@ -177,6 +177,15 @@ service worker is the classic PWA support call.
    | Output | `dist` | Vite default |
    | Node | `22.x` | From `engines` in `package.json` |
 
+> **Leave "Optional Integrations" alone — do not add Supabase there.** That integration is built
+> for Next.js templates: it injects `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`,
+> and Vite exposes **only** `VITE_*` names, so this build would ignore every one of them and render
+> the blank page described in 8.2 while the dashboard shows a healthy set of variables. It also
+> does not run `supabase/migrations/` — its guide tells you to paste SQL into the SQL editor, i.e.
+> schema by hand, which is the drift SPEC §16.5 exists to prevent — and it plants DB URLs and the
+> service key into the project env, values this app deliberately never reads. Four hand-entered
+> variables are strictly better here. Click **Deploy** with no integrations.
+
 ### 8.2 Environment variables (Production + Preview are the ones that matter)
 
 Vite inlines `VITE_*` at **build** time, so these must exist before the build runs, and changing
