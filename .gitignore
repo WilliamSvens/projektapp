@@ -14,3 +14,9 @@ data/
 !pwa/src/data/
 .DS_Store
 Thumbs.db
+
+# Supabase CLI scratch state (project-ref, cached CLI version). `supabase init`
+# writes its own pwa/supabase/.gitignore; this covers a run where it was skipped.
+# A pattern with a slash is anchored to this file's directory, so it must be
+# spelled out — `supabase/.temp/` alone would not match pwa/supabase/.temp.
+pwa/supabase/.temp/
