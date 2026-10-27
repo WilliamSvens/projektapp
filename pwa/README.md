@@ -118,7 +118,9 @@ Two browser profiles or one phone + one laptop, both signed in with allowlisted 
    `klart` / `delvis`, write a comment, add a photo.
 2. Kill the tab and reopen it. Everything is still there and the header still says `Väntar (n)`.
    That is IndexedDB, not memory.
-3. Back online. Press `Uppdatera`. Header reaches `Uppdaterat HH:MM` and the count disappears.
+3. Back online. Press `Uppdatera`. Header reaches `Uppdaterat HH:MM` and the count disappears,
+   then returns to `Uppdatera` after 5 s **without a reload** — press it again to prove the button
+   is not a one-shot. A press whose request never answers must fall back to `Försök igen` (20 s).
 4. Profile B: reload the project list, open the project. Same statuses, same comment, photo visible.
 5. In profile B change a step. Press `Uppdatera` in A. A shows B's change and its own work survives.
 

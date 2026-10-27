@@ -199,6 +199,11 @@ never inside a menu, reachable with the thumb of the hand holding the phone.
 | `synced` | push + pull ok | `Uppdaterat HH:MM` for 5 s, then `idle` | no |
 | `error` | push or pull failed | `Försök igen` + amber dot | **yes** |
 
+A press that has not settled after 20 s is not the technician's problem: the header drops to
+`error` (`Ingen kontakt med servern.`) and the button becomes `Försök igen`. The request may still
+be in flight — a retry is safe because push is written to survive a crash at any step (§3.3), and
+a lost press must never cost the walk back to the van and a reload.
+
 **Behaviour on press:**
 
 1. Offline → nothing happens; the button is disabled and the tap never reaches the handler.
@@ -222,6 +227,7 @@ own: an open checklist must not change under the technician's thumb.
 | Success | `Uppdaterat 14:32` |
 | Push failed | `Kunde inte skicka. Ändringarna finns kvar på enheten.` |
 | Pull failed | `Hämtade inte senaste. Försök igen när du har täckning.` |
+| No answer after 20 s | `Ingen kontakt med servern. Ändringarna finns kvar på enheten.` |
 | Rev moved on another device | `Projektet ändrades på en annan enhet 09:12.` |
 | Storage full | `Lagringen är full. 4 foton väntar.` |
 
@@ -351,5 +357,6 @@ so instead of pretending the file is complete.
 | 0.1 | 2026-10-23 | First draft: 6 tables, snapshot push/pull, last-write-wins with append-only notes, manual `Uppdatera` button as the only sync control, 6 screens, explicit deferral list. |
 | 0.2 | 2026-10-23 | Steps get three states (`klar` / `delvis` / `ej_klar`) instead of a checkbox; apartment status and progress are derived, so `apartments.done` is removed; export carries `status` codes plus a numeric `progress`; `skip_reason` reserved for a later `ej_aktuellt`. |
 | 0.3 | 2026-10-27 | Project progress on screens 1–2 sums only apartment steps (the project-level template rows are not work) and carries a "X av Y lägenheter klara" counter, so finishing one unit of forty is visible. |
+| 0.4 | 2026-10-27 | The `Uppdaterat HH:MM` label really expires after 5 s (§4 said so; the refresh path kept the state and the button stayed disabled until a reload), and a press that has not settled in 20 s falls back to `Försök igen` instead of owning the button forever. |
 
 
