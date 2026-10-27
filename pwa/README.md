@@ -246,12 +246,30 @@ Reading the table correctly:
 
 ### 8.3 Wire the domain back into Supabase and Google
 
-The deploy succeeds before this and then sign-in bounces to `localhost` — this order is why.
+Both Supabase projects need this, and they need **different** Site URLs. Nothing in Supabase
+"connects to" Vercel — these two screens *are* the integration; there is no integration to install.
 
 | Where | What |
 |---|---|
-| Supabase **prod** → Authentication → URL Configuration | Site URL `https://projektapp.vercel.app`, Redirect URLs `https://projektapp.vercel.app/**` and `https://*-<TEAM_SLUG>.vercel.app/**` |
-| Google Auth Platform → client `projektapp-web` | Authorized origin `https://projektapp.vercel.app` (keep `http://localhost:5173`) |
+| Supabase **prod** (`projektapp-prod`) → Authentication → URL Configuration | Site URL `https://projektapp.vercel.app`. Redirect URLs: `https://projektapp.vercel.app/**`, `https://*-<TEAM_SLUG>.vercel.app/**`, `http://localhost:5173/**` |
+| Supabase **dev** (`projektapp-dev`) → Authentication → URL Configuration | Site URL `http://localhost:5173`. Redirect URLs: the **same three**. The wildcard matters here most, because preview builds point at dev (8.2) |
+| Google Auth Platform → client `projektapp-web` → Authorized redirect URIs | `https://<PROD_REF>.supabase.co/auth/v1/callback` **and** `https://<DEV_REF>.supabase.co/auth/v1/callback` |
+| Google Auth Platform → same client → Authorized JavaScript origins | `http://localhost:5173`, `https://projektapp.vercel.app` |
+
+Two things that are easy to get backwards:
+
+- The Google **redirect URI is the Supabase callback**, never the Vercel URL. The chain is
+  app → `<ref>.supabase.co/auth/v1/authorize` → Google → `<ref>.supabase.co/auth/v1/callback` → app,
+  so Google never sees your domain. A missing Vercel *origin* therefore does not break sign-in; a
+  missing *callback* for that project ref does, as `redirect_uri_mismatch`. Both refs are needed,
+  because localhost and every preview use dev.
+- `signInWithGoogle()` passes `redirectTo: window.location.origin` (`src/lib/supabase.ts:26`). If
+  that origin is not in that project's Redirect URLs, Supabase does not error — it falls back to the
+  **Site URL**. The symptom is "login works, but it lands on localhost", not a visible failure.
+
+Also publish the OAuth consent screen (SETUP.md B.2). While the Google app is in **Testing**,
+refresh tokens die after 7 days and technicians get signed out at random; publishing is what makes
+the 14-day offline grace reachable at all.
 
 The wildcard is what lets preview deployments log in (SETUP.md C.2 note, verification E8).
 
@@ -279,6 +297,7 @@ The wildcard is what lets preview deployments log in (SETUP.md C.2 note, verific
 | `ERR_PNPM_OUTDATED_LOCKFILE` | `package.json` changed without a local `pnpm install` | Run it, commit `pnpm-lock.yaml` |
 | Preview deploy can't sign in, production can | Vercel **Deployment Protection** intercepts the OAuth return, or the wildcard is missing | Disable protection for previews, or test against production |
 | Old version keeps loading after a deploy | Service worker still serving the previous shell | Reload twice; DevTools → SW → **Update**. Bump `CACHE` in `public/sw.js` only when SW logic changes |
+| Green deploy, white page, console `VITE_SUPABASE_URL och VITE_SUPABASE_ANON_KEY saknas` | The build ran before the variables existed, one name is missing its `VITE_` prefix, or the value was saved under a different environment than the one serving the URL | Redeploy and *uncheck* "use existing build cache". A missing variable never fails the build (8.2), so green means nothing here |
 | Login works, every list is empty | Env vars point at prod while the migration was only pushed to dev, or the allowlist email differs | Check `is_team_member()` in `0001_init.sql` |
 
 Deploying by hand instead is allowed but does not replace step 8.2:
