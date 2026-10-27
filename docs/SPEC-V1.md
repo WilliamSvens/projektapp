@@ -1,7 +1,7 @@
 # Projektapp Field — v1 specification (solo)
 
 **Status:** draft for approval
-**Version:** 0.2
+**Version:** 0.3
 **Scope owner:** William Svens (one technician, fiber/coax, Swedish apartment complexes)
 **Supersedes for v1:** `SPEC.md` §5.2 (users/membership), §7.5 (merge policy), §7.7 (realtime),
 §7.9 (ordering matrix), §10 (search engine), §15–16 (test/CI gates), §18 Phases 3–4.
@@ -105,6 +105,13 @@ done is a real state and it must be visible in the unit grid and in the export.
 **Derived progress** = `sum(progress) / count(steps)`, rounded down, shown as a percentage on
 screens 1, 2 and 3. A unit at 2 of 4 steps `klar` and 1 `delvis` reads `62%`, not `50%` — the
 half-done step counts for what it is.
+
+**Scope of the project percentage.** On screens 1 and 2 the sum runs over the *apartments'*
+steps only. The project-level rows (`apartment_id = null`, §2) are the cloning template, and no
+screen can tick them: counting them would leave a finished one-apartment job at `50%` and dilute
+every real step by one extra copy of the template. Because the percentage is step-weighted, a
+40-apartment job moves about `0.06%` per step, so screens 1 and 2 also carry
+`<klara> av <alla> lägenheter klara` — the counter that changes the moment a unit is finished.
 
 **The one thing three states cannot express:** a step that does not apply at all (`monteras ej`).
 Such a step stays `delvis` or `ej_klar` and is explained in `comment`. If that turns out to
@@ -343,5 +350,6 @@ so instead of pretending the file is complete.
 |---|---|---|
 | 0.1 | 2026-10-23 | First draft: 6 tables, snapshot push/pull, last-write-wins with append-only notes, manual `Uppdatera` button as the only sync control, 6 screens, explicit deferral list. |
 | 0.2 | 2026-10-23 | Steps get three states (`klar` / `delvis` / `ej_klar`) instead of a checkbox; apartment status and progress are derived, so `apartments.done` is removed; export carries `status` codes plus a numeric `progress`; `skip_reason` reserved for a later `ej_aktuellt`. |
+| 0.3 | 2026-10-27 | Project progress on screens 1–2 sums only apartment steps (the project-level template rows are not work) and carries a "X av Y lägenheter klara" counter, so finishing one unit of forty is visible. |
 
 

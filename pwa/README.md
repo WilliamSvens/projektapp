@@ -134,7 +134,8 @@ src/
   sync/sync.ts            pushLocal / pullProject / pullProjectList / runSync
   sync/backend.ts         SyncBackend interface (the seam the tests fake)
   sync/state.ts           tiny observable store for the header
-  domain/status.ts        progress maths: delvis = 0.5, rounds down, never 100 % early
+  domain/status.ts        progress maths: delvis = 0.5, rounds down; project rollup skips the
+                          project-level template rows and counts finished apartments
   data/templates.ts       step templates ported verbatim from src/templates.py (36 fiber, 11 CAT6)
   ui/                     header, project list, project, checklist, photo capture
   lib/                    supabase client, photo downscale, clipboard/date helpers

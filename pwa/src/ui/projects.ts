@@ -1,6 +1,6 @@
 import { PROJECT_TYPES } from '../data/templates';
 import { createProject, type Project } from '../db/db';
-import { progressPct } from '../domain/status';
+import { projectProgress } from '../domain/status';
 import { el } from '../lib/util';
 import type { Ctx } from './context';
 
@@ -93,8 +93,15 @@ export async function renderProjects(host: HTMLElement, ctx: Ctx): Promise<void>
       const chip = el('span', `chip ${PROJECT_STATUS_CLASS[project.status]}`, PROJECT_STATUS_LABEL[project.status]);
       top.append(name, chip);
 
-      const pct = progressPct(steps);
-      const meta = el('p', 'mt-1 text-xs text-slate-500', `${apartments.length} lägenheter · ${pct}%`);
+      const progress = projectProgress(steps, apartments);
+      const pct = progress.pct;
+      const meta = el(
+        'p',
+        'mt-1 text-xs text-slate-500',
+        progress.totalApartments === 0
+          ? 'Inga lägenheter än'
+          : `${progress.doneApartments} av ${progress.totalApartments} lägenheter klara · ${pct}%`,
+      );
 
       const bar = el('div', 'mt-2 h-1.5 w-full overflow-hidden rounded-full bg-slate-200');
       const fill = el('div', 'h-full rounded-full bg-slate-900');

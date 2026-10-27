@@ -1,5 +1,5 @@
 import { addApartmentRange } from '../db/db';
-import { APARTMENT_LABEL, apartmentStatus, progressPct } from '../domain/status';
+import { APARTMENT_LABEL, apartmentStatus, progressPct, projectProgress } from '../domain/status';
 import { el } from '../lib/util';
 import type { Ctx } from './context';
 
@@ -40,9 +40,16 @@ export async function renderProject(
     [project.customer, project.address].filter(Boolean).join(' · ') || 'Ingen beställare angiven',
   );
 
-  const pct = progressPct(steps.filter((step) => !step.deleted_at));
+  const progress = projectProgress(steps, apartments);
+  const pct = progress.pct;
   const progressRow = el('div', 'space-y-1');
-  const progressText = el('p', 'text-xs text-slate-500', `${apartments.length} lägenheter · ${pct}% klart`);
+  const progressText = el(
+    'p',
+    'text-xs text-slate-500',
+    progress.totalApartments === 0
+      ? 'Inga lägenheter än'
+      : `${progress.doneApartments} av ${progress.totalApartments} lägenheter klara · ${pct}% klart`,
+  );
   const bar = el('div', 'h-1.5 w-full overflow-hidden rounded-full bg-slate-200');
   const fill = el('div', 'h-full rounded-full bg-slate-900');
   fill.style.width = `${pct}%`;

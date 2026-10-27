@@ -38,7 +38,13 @@ export function stepProgress(status: StepStatus | null | undefined): number {
   return STEP_PROGRESS[status ?? 'ej_klar'];
 }
 
-type StepLike = { status: StepStatus | string | null; deleted_at?: string | null };
+type StepLike = {
+  status: StepStatus | string | null;
+  apartment_id?: string | null;
+  deleted_at?: string | null;
+};
+
+type ApartmentLike = { id: string; deleted_at?: string | null };
 
 function live(statuses: StepLike[]): StepStatus[] {
   return statuses
@@ -64,4 +70,43 @@ export function progressPct(steps: StepLike[]): number {
   if (statuses.length === 0) return 0;
   const sum = statuses.reduce((acc, s) => acc + stepProgress(s), 0);
   return Math.floor((sum / statuses.length) * 100);
+}
+
+export interface ProjectProgress {
+  /** Step-weighted percentage over the apartments' steps, rounded down like §2. */
+  pct: number;
+  /** Apartments where every live step is `klar` — the number that moves when a unit is finished. */
+  doneApartments: number;
+  totalApartments: number;
+}
+
+/**
+ * Project-level rows (`apartment_id = null`) are the cloning template (§2): no screen can tick
+ * them, so counting them would cap a finished job at 50 % with one apartment and dilute every
+ * step by another copy of the template. Only live apartments' live steps are work.
+ *
+ * The percentage is step-weighted, so a 40-apartment job moves 0.06 % per step and reads the
+ * same integer for a long while; `doneApartments` is what the card shows next to it.
+ */
+export function projectProgress(
+  steps: StepLike[],
+  apartments: ApartmentLike[],
+): ProjectProgress {
+  const liveApartments = apartments.filter((apartment) => !apartment.deleted_at);
+  const byApartment = new Map<string, StepLike[]>();
+  for (const step of steps) {
+    if (!step.apartment_id || step.deleted_at) continue;
+    const list = byApartment.get(step.apartment_id) ?? [];
+    list.push(step);
+    byApartment.set(step.apartment_id, list);
+  }
+
+  const worked = liveApartments.flatMap((apartment) => byApartment.get(apartment.id) ?? []);
+  return {
+    pct: progressPct(worked),
+    doneApartments: liveApartments.filter(
+      (apartment) => apartmentStatus(byApartment.get(apartment.id) ?? []) === 'klar',
+    ).length,
+    totalApartments: liveApartments.length,
+  };
 }
