@@ -182,21 +182,35 @@ service worker is the classic PWA support call.
 Vite inlines `VITE_*` at **build** time, so these must exist before the build runs, and changing
 one requires a redeploy.
 
-| Variable | Production | Preview + Development |
-|---|---|---|
-| `VITE_SUPABASE_URL` | `https://<PROD_REF>.supabase.co` | `https://<DEV_REF>.supabase.co` |
-| `VITE_SUPABASE_ANON_KEY` | prod anon key | dev anon key |
+The environment picker is a **single-choice dropdown** — `Production and Preview`, `Production`,
+`Preview`, `Development` — so each row holds one value for one selection. Since prod and dev point
+at different databases, that means **six rows**, not two:
+
+| # | Key | Environment (dropdown) | Value |
+|---|---|---|---|
+| 1 | `VITE_SUPABASE_URL` | Production | `https://<PROD_REF>.supabase.co` |
+| 2 | `VITE_SUPABASE_URL` | Preview | `https://<DEV_REF>.supabase.co` |
+| 3 | `VITE_SUPABASE_URL` | Development *(optional)* | `https://<DEV_REF>.supabase.co` |
+| 4 | `VITE_SUPABASE_ANON_KEY` | Production | prod publishable / anon key |
+| 5 | `VITE_SUPABASE_ANON_KEY` | Preview | dev publishable / anon key |
+| 6 | `VITE_SUPABASE_ANON_KEY` | Development *(optional)* | dev publishable / anon key |
+
+Rows 3 and 6 are skippable: Development is only read by `vercel dev` / `vercel env pull`, and
+`pnpm dev` uses `.env.local`. Rows 1 and 2 (and 4 and 5) are **mandatory**.
 
 Reading the table correctly:
 
-- **One key, several environments.** In the UI you type the name once and tick Production, Preview
-  and/or Development. Because the prod and dev values differ, the same name appears **twice** —
-  once ticked Production, once ticked Preview + Development. That is allowed; keys are unique per
-  (name, environment) pair, so don't rename the second copy.
+- **Never pick `Production and Preview` for these two variables.** That option writes one value to
+  both, which is the same thing as pointing preview builds at the live database — the exact mistake
+  the split exists to prevent. It is the right choice for a value that genuinely is identical
+  everywhere, e.g. a future feature flag.
+- **The same key appears several times.** That is legal: identity is (name, environment), so
+  `VITE_SUPABASE_URL` + Preview does not collide with `VITE_SUPABASE_URL` + Production. Do not
+  rename the second copy — the code reads the fixed name. Adding the same name *and* the same
+  environment twice is what Vercel rejects.
 - **"Development" here is not `pnpm dev`.** Locally Vite reads `.env.local`, and Vercel is never
   involved. Vercel's Development scope only applies to `vercel dev` and to `vercel env pull`
-  (which writes `.env.local`). Production + Preview are the two that actually serve users; adding
-  Development is cheap insurance, not a third deployment target.
+  (which writes `.env.local`). Production + Preview are the two that actually serve users.
 - **The prefix is load-bearing.** Only `VITE_`-prefixed names are exposed to the client. Calling it
   `SUPABASE_URL` builds fine and then behaves exactly like a missing variable.
 - **Whitespace counts.** Paste `https://<ref>.supabase.co` with no trailing slash and no
