@@ -54,7 +54,17 @@ npx supabase@latest db push   # applies supabase/migrations/0001_init.sql
 
 Run this from `pwa/`, not the repo root. `config.toml` is not committed, so `link` and `db push`
 fail with *Cannot find project ref* until `init` has created it once — and without it the CLI looks
-for `supabase/migrations` in the wrong directory anyway.
+for `supabase/migrations` in the wrong directory anyway. `init` may ask two yes/no questions about
+Deno editor settings; answer `n` to both.
+
+**If PowerShell refuses the command** with `npx.ps1 cannot be loaded because running scripts is
+disabled on this system`, nothing is installed wrongly — the default Windows policy is `Restricted`,
+and `npx`, `pnpm` and `corepack` are all `.ps1` shims. Either call the `.cmd` next to it
+(`npx.cmd`, `pnpm.cmd`), or lift the policy for your user once, no admin needed:
+
+```powershell
+Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
+```
 
 No Docker, no `supabase start` (SETUP.md decision S3). After the push, the schema, the `photos`
 bucket and all policies exist; nothing is clicked in the dashboard.
@@ -353,7 +363,8 @@ Saving this screen takes effect immediately; no redeploy is needed (unlike env v
 | Green deploy, white page, console `VITE_SUPABASE_URL och VITE_SUPABASE_ANON_KEY saknas` | The build ran before the variables existed, one name is missing its `VITE_` prefix, or the value was saved under a different environment than the one serving the URL | Redeploy and *uncheck* "use existing build cache". A missing variable never fails the build (8.2), so green means nothing here |
 | Login works, every list is empty | Env vars point at prod while the migration was only pushed to dev, or the allowlist email differs | Check `is_team_member()` in `0001_init.sql` |
 | `Kunde inte skicka. Ändringarna finns kvar på enheten.` | Push threw and was rolled back (§3.3: flags clear only after everything succeeds). The real message is the `title` of that amber line — hover it — and in DevTools → Network. In order of likelihood: migrations never applied (§2) → `PGRST205 Could not find the table 'public.projects'`; signed in as an address that is not the allowlist → `new row violates row-level security policy`; `PGRST202 … bump_project_rev` → also §2 | Nothing is lost. Fix the server, then press the button again on the same device |
-| `supabase link` → *Cannot find project ref* | `pwa/supabase/config.toml` was never created | `npx supabase@latest init` from `pwa/`, then link and push (§2) |
+| `supabase link` → *Cannot find project ref* | `pwa/supabase/config.toml` was never created | `npx.cmd supabase@latest init` from `pwa/`, then link and push (§2) |
+| `npx : … npx.ps1 cannot be loaded because running scripts is disabled on this system` | Default Windows execution policy is `Restricted`; `npx`, `pnpm` and `corepack` are `.ps1` shims | Use `npx.cmd` / `pnpm.cmd` (same binary, no policy change), or `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned` — user scope, no admin |
 
 Deploying by hand instead is allowed but does not replace step 8.2:
 

@@ -22,7 +22,7 @@ This guide does **not** author migrations or import data. The old SQLite holds t
 | GitHub account | Supabase and Vercel both sign in with it |
 | Password manager | DB passwords and the Google client secret are shown once |
 | Node 20 LTS + `pnpm` (`corepack enable`) | Vite app; see `SPEC.md` §16.1 |
-| Supabase CLI (`scoop install supabase` or `npx supabase@latest`) | `link` / `db push` — no Docker needed |
+| Supabase CLI (`scoop install supabase` or `npx supabase@latest`) | `link` / `db push` — no Docker needed. On stock Windows `npx` is a blocked `.ps1`: use `npx.cmd`, or `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned` |
 | 45 uninterrupted minutes | The Google client secret cannot be viewed again after creation |
 
 Fill these in as you go; later steps refer back to them:
@@ -245,12 +245,15 @@ empty screen saying `Ditt konto är inte inbjudet. Kontakta William.`
 
 ### D.1 Link the CLI and push the schema
 
-Run from the repo root, after `supabase init` has created `supabase/config.toml`:
+Run from **`pwa/`** — that is where `supabase/migrations` lives. `init` is the step that creates
+`supabase/config.toml`; skipping it makes `link` fail with *Cannot find project ref*:
 
 ```powershell
-supabase login                       # opens the browser once
-supabase link --project-ref <DEV_REF>
-supabase db push                     # applies supabase/migrations/*.sql to dev
+cd pwa
+npx.cmd supabase@latest init         # creates pwa/supabase/config.toml, keeps migrations/
+npx.cmd supabase@latest login        # opens the browser once
+npx.cmd supabase@latest link --project-ref <DEV_REF>
+npx.cmd supabase@latest db push      # applies supabase/migrations/*.sql to dev
 ```
 
 Then repeat with `--project-ref <PROD_REF>` **only after** the dev schema and the verification
@@ -349,6 +352,8 @@ setup rather than discovering it in a basement in November.
 | `google_sub` is null | `openid` scope missing | Add it manually in Data Access (B.3) |
 | Logged in but every list is empty | `users` row is `is_active = false`, or RLS sees no membership | Intended for strangers; activate the row (D.5) — never disable RLS to "test" |
 | `supabase db push` → password authentication failed | Wrong or rotated DB password | Project Settings → Database → reset password, then re-run |
+| `npx.ps1 cannot be loaded because running scripts is disabled on this system` | Windows default policy is `Restricted`; `npx`, `pnpm`, `corepack` are `.ps1` shims | Call `npx.cmd` / `pnpm.cmd`, or `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned` (user scope, no admin) |
+| `supabase link` → *Cannot find project ref* | No `supabase/config.toml`; `init` was skipped | `npx.cmd supabase@latest init` in the directory that holds `supabase/migrations`, then link and push (D.1) |
 | `permission denied for table users` | Query ran as `anon`/`authenticated` without a policy | Use the SQL editor (runs as `postgres`), or qualify `public.users` |
 | Vercel build: `import.meta.env.VITE_SUPABASE_URL is undefined` | Env var set for Production only | Add it to Preview and Development too (D.3) |
 | Email/magic-link login still offered | C.4 not saved | Disable the Email provider and re-test in a private window |
