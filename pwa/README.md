@@ -241,20 +241,26 @@ Reading the table correctly:
   one console error. With both variables set the same position holds
   `const hh="https://<ref>.supabase.co",dh="<key>"` and no throw.
 
-4. **Deploy**. Name the project **`projektapp`** so the domain is `projektapp.vercel.app` and
-   matches the `<VERCEL_DOMAIN>` placeholder the rest of `docs/SETUP.md` uses.
+4. **Deploy**. Name the project **`projektapp`**. Vercel may still suffix the domain when the plain
+   subdomain is taken — this project's real domain is `projektapp-kappa.vercel.app` — so read the
+   actual value from **Settings → Domains** and use *that* wherever `<VERCEL_DOMAIN>` appears here and
+   in `docs/SETUP.md`. A guessed domain never errors: Supabase silently falls back to the Site URL,
+   and Google never looks at your domain at all.
 
 ### 8.3 Wire the domain back into Supabase and Google
 
 Both Supabase projects need this, and they need **different** Site URLs. Nothing in Supabase
 "connects to" Vercel — these two screens *are* the integration; there is no integration to install.
 
+`<VERCEL_DOMAIN>` below is the real production domain **without** a scheme — for this project
+`projektapp-kappa.vercel.app` (8.2 step 4).
+
 | Where | What |
 |---|---|
-| Supabase **prod** (`projektapp-prod`) → Authentication → URL Configuration | Site URL `https://projektapp.vercel.app`. Redirect URLs: `https://projektapp.vercel.app/**`, `https://*-<TEAM_SLUG>.vercel.app/**`, `http://localhost:5173/**` |
-| Supabase **dev** (`projektapp-dev`) → Authentication → URL Configuration | Site URL `http://localhost:5173`. Redirect URLs: the **same three**. The wildcard matters here most, because preview builds point at dev (8.2) |
+| Supabase **prod** (`projektapp-prod`) → Authentication → URL Configuration | **Site URL** `https://<VERCEL_DOMAIN>` — scheme required, no trailing slash, no `/**`. **Redirect URLs**: `https://<VERCEL_DOMAIN>/**`, `https://*-<TEAM_SLUG>.vercel.app/**`, `http://localhost:5173/**` |
+| Supabase **dev** (`projektapp-dev`) → Authentication → URL Configuration | **Site URL** `http://localhost:5173`. **Redirect URLs**: the **same three**. The wildcard matters here most, because preview builds point at dev (8.2) |
 | Google Auth Platform → client `projektapp-web` → Authorized redirect URIs | `https://<PROD_REF>.supabase.co/auth/v1/callback` **and** `https://<DEV_REF>.supabase.co/auth/v1/callback` |
-| Google Auth Platform → same client → Authorized JavaScript origins | `http://localhost:5173`, `https://projektapp.vercel.app` |
+| Google Auth Platform → same client → Authorized JavaScript origins | `http://localhost:5173`, `https://<VERCEL_DOMAIN>` |
 
 Two things that are easy to get backwards:
 
@@ -289,13 +295,27 @@ fails silently now and only costs you later, when Decision 1 moves identity to `
 
 The wildcard is what lets preview deployments log in (SETUP.md C.2 note, verification E8).
 
+These three typos all **save without complaint** and fail later:
+
+- **Site URL with no `https://`.** A relative `Location` is resolved against the host that sent it, so
+  sign-in lands on `https://<ref>.supabase.co/auth/v1/<VERCEL_DOMAIN>` — a Supabase 404 page, not your
+  app. The Site URL is text, not a URL field, so nothing stops you.
+- **A stray character in a Redirect URL**, e.g. `https://<VERCEL_DOMAIN>>/**`. It is stored, it looks
+  right at a glance, and it matches nothing.
+- **The wrong `<TEAM_SLUG>`.** Preview URLs are `projektapp-git-<branch>-<team-slug>.vercel.app`; open
+  any preview deployment and read the slug off the address bar rather than assuming your username.
+  `https://projektapp-*-<TEAM_SLUG>.vercel.app/**` is tighter than `https://*-<TEAM_SLUG>.vercel.app/**`
+  and costs nothing — fall back to the broad form only if Supabase refuses to save the narrower one.
+
+Saving this screen takes effect immediately; no redeploy is needed (unlike env vars, 8.2).
+
 ### 8.4 Verify the deployment
 
 | Check | How | Expected |
 |---|---|---|
 | Shell loads | open the URL | sign-in screen, Swedish copy |
 | SW registered | DevTools → Application → Service Workers | `sw.js`, status **activated**, scope `/` |
-| Headers | `curl -I https://projektapp.vercel.app/sw.js` | `cache-control: public, max-age=0, must-revalidate` |
+| Headers | `curl -I https://<VERCEL_DOMAIN>/sw.js` | `cache-control: public, max-age=0, must-revalidate` |
 | Hashed assets immutable | `curl -I .../assets/index-*.js` | `max-age=31536000, immutable` |
 | No service key | local `pnpm build`, then search `dist/**/*.js` for `SERVICE_ROLE` | no matches (E9) |
 | Nothing needed is gitignored | `git status --ignored --short pwa` | only `node_modules/` and `dist/` are listed. Anything else is a file your local build has and Vercel's clone does not |
