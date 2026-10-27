@@ -177,7 +177,7 @@ service worker is the classic PWA support call.
    | Output | `dist` | Vite default |
    | Node | `22.x` | From `engines` in `package.json` |
 
-### 8.2 Environment variables (all three scopes)
+### 8.2 Environment variables (Production + Preview are the ones that matter)
 
 Vite inlines `VITE_*` at **build** time, so these must exist before the build runs, and changing
 one requires a redeploy.
@@ -187,8 +187,36 @@ one requires a redeploy.
 | `VITE_SUPABASE_URL` | `https://<PROD_REF>.supabase.co` | `https://<DEV_REF>.supabase.co` |
 | `VITE_SUPABASE_ANON_KEY` | prod anon key | dev anon key |
 
-Two entries per variable if the values differ per scope. Do not add `service_role` to any scope —
-it would be compiled into the public bundle (SPEC §16.2, check E9).
+Reading the table correctly:
+
+- **One key, several environments.** In the UI you type the name once and tick Production, Preview
+  and/or Development. Because the prod and dev values differ, the same name appears **twice** —
+  once ticked Production, once ticked Preview + Development. That is allowed; keys are unique per
+  (name, environment) pair, so don't rename the second copy.
+- **"Development" here is not `pnpm dev`.** Locally Vite reads `.env.local`, and Vercel is never
+  involved. Vercel's Development scope only applies to `vercel dev` and to `vercel env pull`
+  (which writes `.env.local`). Production + Preview are the two that actually serve users; adding
+  Development is cheap insurance, not a third deployment target.
+- **The prefix is load-bearing.** Only `VITE_`-prefixed names are exposed to the client. Calling it
+  `SUPABASE_URL` builds fine and then behaves exactly like a missing variable.
+- **Whitespace counts.** Paste `https://<ref>.supabase.co` with no trailing slash and no
+  `/rest/v1`; supabase-js appends its own paths.
+- **Publishable vs anon.** Newer Supabase dashboards label the public key **Publishable**
+  (`sb_publishable_…`) instead of **anon** (a JWT). Either works with supabase-js 2.x — take the
+  public one, never the secret / `service_role` key, which would be compiled into the bundle and
+  handed to every visitor (SPEC §16.2, check E9).
+- **Preview must point at dev.** Not purity: a reviewer clicking through a PR preview writes to
+  whatever database the preview was built against, and sync replaces whole projects on pull.
+  Preview pointing at prod is how a code review quietly edits a technician's real paperwork.
+- **Editing a value later changes nothing until you redeploy.** The URL and key are literals inside
+  `dist/assets/index-*.js`. After rotating a key or fixing a scope, use Deployments → ⋯ →
+  **Redeploy** and *uncheck* "use existing build cache", or the old bundle is reused.
+- **A missing variable is not a build error.** Verified by building this tree without `.env.local`:
+  the build goes green and the bundle contains `const hh=void 0,dh=void 0;throw new Error("VITE_SUPABASE_URL
+  och VITE_SUPABASE_ANON_KEY saknas…")`. `main.ts` cannot catch it — its own `import` of
+  `./lib/supabase` throws before `boot()` runs — so the deploy is green and the page is white with
+  one console error. With both variables set the same position holds
+  `const hh="https://<ref>.supabase.co",dh="<key>"` and no throw.
 
 4. **Deploy**. Name the project **`projektapp`** so the domain is `projektapp.vercel.app` and
    matches the `<VERCEL_DOMAIN>` placeholder the rest of `docs/SETUP.md` uses.
@@ -213,6 +241,7 @@ The wildcard is what lets preview deployments log in (SETUP.md C.2 note, verific
 | Headers | `curl -I https://projektapp.vercel.app/sw.js` | `cache-control: public, max-age=0, must-revalidate` |
 | Hashed assets immutable | `curl -I .../assets/index-*.js` | `max-age=31536000, immutable` |
 | No service key | local `pnpm build`, then search `dist/**/*.js` for `SERVICE_ROLE` | no matches (E9) |
+| Right database baked in | DevTools → Network → any request to `*.supabase.co` | host is the ref you meant (`-prod` on the prod URL, `-dev` on a preview). Catches a silent prod/dev mixup, which otherwise looks identical to working |
 | Offline start | Network → Offline, reload | app still boots (shell is cached) |
 | Preview login | open a PR, sign in on its `*.vercel.app` URL | session established (E8) |
 
