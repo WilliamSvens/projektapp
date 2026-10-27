@@ -271,6 +271,22 @@ Also publish the OAuth consent screen (SETUP.md B.2). While the Google app is in
 refresh tokens die after 7 days and technicians get signed out at random; publishing is what makes
 the 14-day offline grace reachable at all.
 
+Two notes for this repo specifically:
+
+- **Renaming the OAuth client is cosmetic.** The client *name* is internal, the Client ID and secret
+  do not change, so the provider settings already saved in both Supabase projects stay valid — do not
+  re-paste them. What technicians see on the consent screen comes from Google Auth Platform →
+  **Branding**, which is a separate field.
+- **The Streamlit app still lives in this repo** (SPEC.md: read-only desk view until Phase 4) and
+  signs in to Google *directly*, not through Supabase. If you reuse this client, keep its
+  `http://localhost:8501/oauth2callback` redirect URI and `http://localhost:8501` origin (SETUP.md
+  S5: one client, several redirect URIs). Replacing them breaks the desk view silently.
+
+Google Auth Platform → **Data Access** needs `openid` added by hand; it is not in the default list
+(SETUP.md B.3). In Phase 0 nothing stores it — `0001_init.sql` has no `handle_new_user()` and no
+`users` table, the gate is the email allowlist in `is_team_member()` (§7) — so a missing `openid`
+fails silently now and only costs you later, when Decision 1 moves identity to `google_sub`.
+
 The wildcard is what lets preview deployments log in (SETUP.md C.2 note, verification E8).
 
 ### 8.4 Verify the deployment
