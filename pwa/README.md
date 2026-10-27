@@ -45,12 +45,29 @@ it would be compiled into the bundle. `pnpm build` fails loudly if either variab
 ## 2. Set up the database
 
 ```powershell
-supabase link --project-ref <DEV_REF>
-supabase db push            # applies supabase/migrations/0001_init.sql
+cd pwa
+npx supabase@latest init      # creates pwa/supabase/config.toml; leaves migrations/ alone
+npx supabase@latest login     # opens the browser once
+npx supabase@latest link --project-ref <DEV_REF>
+npx supabase@latest db push   # applies supabase/migrations/0001_init.sql
 ```
+
+Run this from `pwa/`, not the repo root. `config.toml` is not committed, so `link` and `db push`
+fail with *Cannot find project ref* until `init` has created it once — and without it the CLI looks
+for `supabase/migrations` in the wrong directory anyway.
 
 No Docker, no `supabase start` (SETUP.md decision S3). After the push, the schema, the `photos`
 bucket and all policies exist; nothing is clicked in the dashboard.
+
+**Fallback with no CLI:** paste `supabase/migrations/0001_init.sql` into Dashboard → **SQL editor**.
+The file is idempotent — `create table if not exists` ×6, `drop policy if exists` before each of the
+6 `create policy`, `create or replace function` ×3 — so running it twice, or pushing later, is safe.
+It does not write `supabase_migrations`, so the first `db push` still has to happen eventually.
+
+**Nothing works until this has run.** Authentication lives in its own schema, so sign-in succeeds on
+an empty project and the app then fails on the first send with `Kunde inte skicka…`, because PostgREST
+answers `PGRST205 Could not find the table 'public.projects'` and `PGRST202 … bump_project_rev`.
+That is not an RLS or URL problem, and no amount of redeploying changes it.
 
 **The allowlist lives in one place:** `is_team_member()` in `0001_init.sql`. It compares the JWT
 email against a single address. A different Google account can sign in successfully and will then
@@ -335,6 +352,8 @@ Saving this screen takes effect immediately; no redeploy is needed (unlike env v
 | Old version keeps loading after a deploy | Service worker still serving the previous shell | Reload twice; DevTools → SW → **Update**. Bump `CACHE` in `public/sw.js` only when SW logic changes |
 | Green deploy, white page, console `VITE_SUPABASE_URL och VITE_SUPABASE_ANON_KEY saknas` | The build ran before the variables existed, one name is missing its `VITE_` prefix, or the value was saved under a different environment than the one serving the URL | Redeploy and *uncheck* "use existing build cache". A missing variable never fails the build (8.2), so green means nothing here |
 | Login works, every list is empty | Env vars point at prod while the migration was only pushed to dev, or the allowlist email differs | Check `is_team_member()` in `0001_init.sql` |
+| `Kunde inte skicka. Ändringarna finns kvar på enheten.` | Push threw and was rolled back (§3.3: flags clear only after everything succeeds). The real message is the `title` of that amber line — hover it — and in DevTools → Network. In order of likelihood: migrations never applied (§2) → `PGRST205 Could not find the table 'public.projects'`; signed in as an address that is not the allowlist → `new row violates row-level security policy`; `PGRST202 … bump_project_rev` → also §2 | Nothing is lost. Fix the server, then press the button again on the same device |
+| `supabase link` → *Cannot find project ref* | `pwa/supabase/config.toml` was never created | `npx supabase@latest init` from `pwa/`, then link and push (§2) |
 
 Deploying by hand instead is allowed but does not replace step 8.2:
 
