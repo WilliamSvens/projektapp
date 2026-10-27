@@ -108,7 +108,7 @@ src/
   sync/backend.ts         SyncBackend interface (the seam the tests fake)
   sync/state.ts           tiny observable store for the header
   domain/status.ts        progress maths: delvis = 0.5, rounds down, never 100 % early
-  data/templates.ts       the 36-step Cat6 template, ported from the Streamlit app
+  data/templates.ts       step templates ported verbatim from src/templates.py (36 fiber, 11 CAT6)
   ui/                     header, project list, project, checklist, photo capture
   lib/                    supabase client, photo downscale, clipboard/date helpers
 public/sw.js              hand-written service worker (app shell + runtime caching)
@@ -264,6 +264,7 @@ The wildcard is what lets preview deployments log in (SETUP.md C.2 note, verific
 | Headers | `curl -I https://projektapp.vercel.app/sw.js` | `cache-control: public, max-age=0, must-revalidate` |
 | Hashed assets immutable | `curl -I .../assets/index-*.js` | `max-age=31536000, immutable` |
 | No service key | local `pnpm build`, then search `dist/**/*.js` for `SERVICE_ROLE` | no matches (E9) |
+| Nothing needed is gitignored | `git status --ignored --short pwa` | only `node_modules/` and `dist/` are listed. Anything else is a file your local build has and Vercel's clone does not |
 | Right database baked in | DevTools → Network → any request to `*.supabase.co` | host is the ref you meant (`-prod` on the prod URL, `-dev` on a preview). Catches a silent prod/dev mixup, which otherwise looks identical to working |
 | Offline start | Network → Offline, reload | app still boots (shell is cached) |
 | Preview login | open a PR, sign in on its `*.vercel.app` URL | session established (E8) |
@@ -273,6 +274,7 @@ The wildcard is what lets preview deployments log in (SETUP.md C.2 note, verific
 | Symptom | Cause | Fix |
 |---|---|---|
 | Build fails: no `package.json` found | Root Directory left at the repo root | Set it to `pwa` |
+| Build fails: TS2307 `Cannot find module '../data/templates'` | The root `.gitignore` line `data/` matches *any* depth, so `pwa/src/data/` never got committed. `tsc` passed locally because the file was on disk | The negation `!pwa/src/data/` is in `.gitignore` — keep it, and check with `git status --ignored --short pwa` (8.4) |
 | `tsc: not found` during build | Dev deps skipped because `NODE_ENV=production` | Already handled by `--prod=false`; don't "simplify" the install command |
 | `ERR_PNPM_OUTDATED_LOCKFILE` | `package.json` changed without a local `pnpm install` | Run it, commit `pnpm-lock.yaml` |
 | Preview deploy can't sign in, production can | Vercel **Deployment Protection** intercepts the OAuth return, or the wildcard is missing | Disable protection for previews, or test against production |

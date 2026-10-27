@@ -6,5 +6,11 @@ __pycache__/
 .streamlit/secrets.toml
 .env
 data/
+# The pattern above ignores any directory named "data" at any depth, which
+# silently swallowed pwa/src/data/templates.ts (the step templates). It existed
+# locally so tsc passed, but it was never committed, so the first Vercel build
+# failed with TS2307 "Cannot find module '../data/templates'". Re-include the
+# PWA's data dir; the Streamlit ignore above is unaffected.
+!pwa/src/data/
 .DS_Store
 Thumbs.db
